@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  userservice:
+    build:
+      context: ./src/UserService
+      dockerfile: UserService.API/Dockerfile
+    container_name: userservice
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - JwtSettings__Secret=OnlineCourseManagement_SuperSecret_Key_2024_AtLeast256Bits_ForHMACSHA256!
+      - JwtSettings__Issuer=UserService
+      - JwtSettings__Audience=OnlineCourseManagementApp
+      - JwtSettings__ExpiryMinutes=60
+    networks:
+      - coursemanagement-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/swagger/v1.0/swagger.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  courseservice:
+    build:
+      context: ./src/CourseService
+      dockerfile: CourseService.API/Dockerfile
+    container_name: courseservice
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+      - JwtSettings__Secret=OnlineCourseManagement_SuperSecret_Key_2024_AtLeast256Bits_ForHMACSHA256!
+      - JwtSettings__Issuer=UserService
+      - JwtSettings__Audience=OnlineCourseManagementApp
+      - UserServiceSettings__BaseUrl=http://userservice:5001
+    depends_on:
+      - userservice
+    networks:
+      - coursemanagement-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/swagger/v1.0/swagger.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  coursemanagement-net:
+    driver: bridge
