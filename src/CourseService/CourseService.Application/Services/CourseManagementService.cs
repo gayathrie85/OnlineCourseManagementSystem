@@ -138,10 +138,16 @@ public class CourseManagementService : ICourseService
         return Result<PagedResult<CourseDto>>.Success(result);
     }
 
+    public async Task<bool> IsStudentEnrolledAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken = default)
+    {
+        return await _enrollmentRepository.IsEnrolledAsync(courseId, studentId, cancellationToken);
+    }
+
     public async Task<Result<EnrollmentDto>> EnrollStudentAsync(
         EnrollRequestDto request, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Enrolling student {StudentId} in course {CourseId}", request.StudentId, request.CourseId);
+        var studentId = request.StudentId!.Value;
+        _logger.LogInformation("Enrolling student {StudentId} in course {CourseId}", studentId, request.CourseId);
 
         var course = await _courseRepository.GetByIdAsync(request.CourseId, cancellationToken);
 
@@ -151,13 +157,13 @@ public class CourseManagementService : ICourseService
         if (!course.IsActive)
             return Result<EnrollmentDto>.Failure("Cannot enroll in an inactive course.");
 
-        if (await _enrollmentRepository.IsEnrolledAsync(request.CourseId, request.StudentId, cancellationToken))
+        if (await _enrollmentRepository.IsEnrolledAsync(request.CourseId, studentId, cancellationToken))
             return Result<EnrollmentDto>.Conflict("Student is already enrolled in this course.");
 
-        var student = await _userServiceClient.GetUserByIdAsync(request.StudentId, cancellationToken);
+        var student = await _userServiceClient.GetUserByIdAsync(studentId, cancellationToken);
 
         if (student is null)
-            return Result<EnrollmentDto>.NotFound($"Student with Id '{request.StudentId}' does not exist.");
+            return Result<EnrollmentDto>.NotFound($"Student with Id '{studentId}' does not exist.");
 
         if (!student.Role.Equals("Student", StringComparison.OrdinalIgnoreCase))
             return Result<EnrollmentDto>.Failure("Only students can be enrolled in courses.");
@@ -165,13 +171,13 @@ public class CourseManagementService : ICourseService
         var enrollment = new Enrollment
         {
             CourseId = request.CourseId,
-            StudentId = request.StudentId,
+            StudentId = studentId,
             StudentName = student.FullName,
             StudentEmail = student.Email
         };
 
         var created = await _enrollmentRepository.CreateAsync(enrollment, cancellationToken);
-        _logger.LogInformation("Student {StudentId} enrolled in course {CourseId}", request.StudentId, request.CourseId);
+        _logger.LogInformation("Student {StudentId} enrolled in course {CourseId}", studentId, request.CourseId);
 
         return Result<EnrollmentDto>.Success(new EnrollmentDto
         {
@@ -183,5 +189,73 @@ public class CourseManagementService : ICourseService
             StudentEmail = created.StudentEmail,
             EnrolledAt = created.EnrolledAt
         }, 201);
+    }
+
+    public async Task<Result<BulkEnrollResponseDto>> BulkEnrollAsync(
+        Guid studentId, List<Guid> courseIds, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Bulk enrolling student {StudentId} in {Count} courses", studentId, courseIds.Count);
+
+        var student = await _userServiceClient.GetUserByIdAsync(studentId, cancellationToken);
+
+        if (student is null)
+            return Result<BulkEnrollResponseDto>.NotFound($"Student with Id '{studentId}' does not exist.");
+
+        if (!student.Role.Equals("Student", StringComparison.OrdinalIgnoreCase))
+            return Result<BulkEnrollResponseDto>.Failure("Only students can be enrolled in courses.");
+
+        if (!student.IsActive)
+            return Result<BulkEnrollResponseDto>.Failure("The student account is inactive.");
+
+        var response = new BulkEnrollResponseDto();
+
+        foreach (var courseId in courseIds.Distinct())
+        {
+            var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken);
+
+            if (course is null)
+            {
+                response.Failed.Add(new BulkEnrollErrorDto { CourseId = courseId, Reason = "Course not found." });
+                continue;
+            }
+
+            if (!course.IsActive)
+            {
+                response.Failed.Add(new BulkEnrollErrorDto { CourseId = courseId, Reason = "Course is inactive." });
+                continue;
+            }
+
+            if (await _enrollmentRepository.IsEnrolledAsync(courseId, studentId, cancellationToken))
+            {
+                response.Failed.Add(new BulkEnrollErrorDto { CourseId = courseId, Reason = "Already enrolled." });
+                continue;
+            }
+
+            var enrollment = new Enrollment
+            {
+                CourseId = courseId,
+                StudentId = studentId,
+                StudentName = student.FullName,
+                StudentEmail = student.Email
+            };
+
+            var created = await _enrollmentRepository.CreateAsync(enrollment, cancellationToken);
+
+            response.Enrolled.Add(new EnrollmentDto
+            {
+                Id = created.Id,
+                CourseId = created.CourseId,
+                CourseTitle = course.Title,
+                StudentId = created.StudentId,
+                StudentName = created.StudentName,
+                StudentEmail = created.StudentEmail,
+                EnrolledAt = created.EnrolledAt
+            });
+        }
+
+        _logger.LogInformation("Bulk enroll complete for student {StudentId}: {Success} enrolled, {Failed} failed",
+            studentId, response.Enrolled.Count, response.Failed.Count);
+
+        return Result<BulkEnrollResponseDto>.Success(response, 201);
     }
 }

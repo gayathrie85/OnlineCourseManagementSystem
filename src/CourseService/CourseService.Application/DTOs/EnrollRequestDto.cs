@@ -7,6 +7,8 @@ public class EnrollRequestDto
     [Required(ErrorMessage = "CourseId is required.")]
     public Guid CourseId { get; set; }
 
-    [Required(ErrorMessage = "StudentId is required.")]
-    public Guid StudentId { get; set; }
+    /// <summary>
+    /// Required for Instructors. Ignored for Students (taken from JWT token).
+    /// </summary>
+    public Guid? StudentId { get; set; }
 }

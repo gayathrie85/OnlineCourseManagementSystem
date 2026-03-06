@@ -27,12 +27,12 @@ OnlineCourseManagement/
 ```
 
 ### Design Patterns & Principles
-- **Clean Architecture** — strict dependency rule (Domain ← Application ← Infrastructure ← API)
+- **Clean Architecture** — strict dependency rule (Domain <- Application <- Infrastructure <- API)
 - **Repository Pattern** — abstract data access behind interfaces
 - **Service Pattern** — business logic isolated in Application layer services
 - **Result Pattern** — `Result<T>` replaces exceptions for predictable flow control
 - **Options Pattern** — strongly-typed configuration via `JwtSettings`, `UserServiceSettings`
-- **Delegating Handler** — JWT token forwarded automatically from CourseService → UserService
+- **Delegating Handler** — JWT token forwarded automatically from CourseService -> UserService
 - **Async/Await** — all data access and controller actions are fully async
 
 ---
@@ -63,28 +63,101 @@ All endpoints are versioned under `/api/v1/`. The version can be omitted and def
 
 ### CourseService (`http://localhost:5002`)
 
-| Method | Endpoint                              | Role           | Description                                           |
-|--------|---------------------------------------|----------------|-------------------------------------------------------|
-| GET    | `/api/v1/courses/search`              | Any (JWT)      | List all courses or filter by date range/instructor   |
-| GET    | `/api/v1/courses/{id}`                | Any (JWT)      | Get course by ID                                      |
-| POST   | `/api/v1/courses`                     | Instructor     | Create a new course                                   |
-| PUT    | `/api/v1/courses/{id}`                | Instructor     | Update own course                                     |
-| DELETE | `/api/v1/courses/{id}`                | Instructor     | Delete own course                                     |
-| POST   | `/api/v1/enrollments`                 | Instructor     | Enroll a student in a course                          |
+| Method | Endpoint                              | Role               | Description                                           |
+|--------|---------------------------------------|--------------------|-------------------------------------------------------|
+| GET    | `/api/v1/courses/search`              | Any (JWT)          | Search all active courses with filters (paginated)    |
+| GET    | `/api/v1/courses/{id}`                | Any (JWT)          | Get any course by ID                                  |
+| POST   | `/api/v1/courses`                     | Instructor         | Create a new course                                   |
+| PUT    | `/api/v1/courses/{id}`                | Instructor         | Update own course                                     |
+| GET    | `/api/v1/enrollments/my-courses`      | Student            | Get enrolled courses (paginated)                      |
+| POST   | `/api/v1/enrollments`                 | Student            | Self-enroll in a course                               |
+| POST   | `/api/v1/enrollments`                 | Instructor         | Enroll any student in a course                        |
+| POST   | `/api/v1/enrollments/bulk`            | Student            | Self-enroll in multiple courses at once                |
+| POST   | `/api/v1/enrollments/bulk`            | Instructor         | Enroll a student in multiple courses at once           |
+
+> **Note:** Course deletion is not supported. Students cannot unenroll once enrolled.
+
+### Role-Based Access Summary
+
+| Action                      | Instructor       | Student    |
+|-----------------------------|:----------------:|:----------:|
+| Create course               | Yes              | No         |
+| Update own course           | Yes              | No         |
+| Delete course               | No               | No         |
+| Search all active courses   | Yes              | Yes        |
+| Get course by ID            | Yes              | Yes        |
+| View enrolled courses       | No               | Yes        |
+| Enroll a student            | Any student      | Self only  |
+| Bulk enroll                 | Any student      | Self only  |
+| Unenroll                    | No               | No         |
 
 ### Course Search Query Parameters
 
-`GET /api/v1/courses/search` accepts optional query parameters:
+`GET /api/v1/courses/search` accepts optional query parameters (available to all authenticated users):
 
-| Parameter      | Type     | Description                          |
-|----------------|----------|--------------------------------------|
-| `instructorName` | string | Filter by instructor name (partial)  |
-| `startDate`    | datetime | Filter courses starting after date   |
-| `endDate`      | datetime | Filter courses ending before date    |
-| `pageNumber`   | int      | Page number (default: 1)             |
-| `pageSize`     | int      | Page size (default: 10, max: 100)    |
+| Parameter        | Type     | Validation                                    | Description                          |
+|------------------|----------|-----------------------------------------------|--------------------------------------|
+| `courseName`     | string   | Max 200 chars, letters/numbers/spaces/punctuation | Filter by course name (partial)    |
+| `instructorName` | string   | Max 100 chars, letters/spaces/dots/hyphens only | Filter by instructor name (partial) |
+| `startDate`      | datetime | Optional                                      | Filter courses starting after date   |
+| `endDate`        | datetime | Optional                                      | Filter courses ending before date    |
+| `pageNumber`     | int      | Min: 1                                        | Page number (default: 1)             |
+| `pageSize`       | int      | 1–50                                          | Page size (default: 10)              |
 
 Omit all filter parameters to return all active courses.
+
+---
+
+## Input Validation
+
+### Registration (`POST /api/v1/auth/register`)
+
+| Field      | Validations                                                                                       |
+|------------|---------------------------------------------------------------------------------------------------|
+| `fullName` | Required, 2–100 characters, letters/spaces/dots/apostrophes/hyphens only                         |
+| `email`    | Required, valid email format, max 256 characters                                                  |
+| `password` | Required, 8–100 characters, must include uppercase + lowercase + digit + special char (`@$!%*?&#`) |
+| `role`     | Required (`1` = Student, `2` = Instructor)                                                        |
+
+### Login (`POST /api/v1/auth/login`)
+
+| Field      | Validations                                      |
+|------------|--------------------------------------------------|
+| `email`    | Required, valid email format, max 256 characters  |
+| `password` | Required, max 100 characters                      |
+
+### Create Course (`POST /api/v1/courses`)
+
+| Field           | Validations                                                              |
+|-----------------|--------------------------------------------------------------------------|
+| `title`         | Required, 3–200 characters, letters/numbers/spaces/basic punctuation only |
+| `description`   | Required, 10–2000 characters                                             |
+| `instructorId`  | Required, valid GUID                                                      |
+| `startDate`     | Required, cannot be in the past, must be before `endDate`                 |
+| `endDate`       | Required, must be after `startDate`                                       |
+
+### Update Course (`PUT /api/v1/courses/{id}`)
+
+| Field         | Validations                                                              |
+|---------------|--------------------------------------------------------------------------|
+| `title`       | Required, 3–200 characters, letters/numbers/spaces/basic punctuation only |
+| `description` | Required, 10–2000 characters                                             |
+| `startDate`   | Required, must be before `endDate`                                        |
+| `endDate`     | Required, must be after `startDate`                                       |
+
+### Enroll Student (`POST /api/v1/enrollments`)
+
+| Field       | Validations                                                                 |
+|-------------|-----------------------------------------------------------------------------|
+| `courseId`  | Required, valid GUID                                                         |
+| `studentId` | Required for Instructors (valid GUID). Ignored for Students (taken from JWT) |
+
+### Bulk Enroll (`POST /api/v1/enrollments/bulk`)
+
+| Field       | Validations                                                                 |
+|-------------|-----------------------------------------------------------------------------|
+| `courseIds` | Required, 1–20 GUIDs                                                        |
+| `studentId` | Required for Instructors (valid GUID). Ignored for Students (taken from JWT) |
 
 ---
 
@@ -161,7 +234,7 @@ POST http://localhost:5001/api/v1/auth/register
 }
 ```
 
-### 3. Login to get JWT token
+### 3. Login as Instructor to get JWT token
 ```
 POST http://localhost:5001/api/v1/auth/login
 {
@@ -186,7 +259,9 @@ POST http://localhost:5002/api/v1/courses
 }
 ```
 
-### 6. Enroll a Student (as Instructor)
+### 6. Enroll a Student
+
+**Option A — Instructor enrolls a student:**
 ```
 POST http://localhost:5002/api/v1/enrollments
 {
@@ -195,9 +270,46 @@ POST http://localhost:5002/api/v1/enrollments
 }
 ```
 
-### 7. Browse or Search Courses (any authenticated user)
+**Option B — Student self-enrolls (login as Student first, then):**
 ```
-# All courses (paginated)
+POST http://localhost:5002/api/v1/enrollments
+{
+  "courseId": "<course-guid>"
+}
+```
+> `studentId` is not needed for Students — it's automatically taken from the JWT token.
+
+### 7. Bulk Enroll (multiple courses at once)
+
+**As Student** — self-enroll in multiple courses:
+```
+POST http://localhost:5002/api/v1/enrollments/bulk
+{
+  "courseIds": ["<course-guid-1>", "<course-guid-2>"]
+}
+```
+
+**As Instructor** — enroll a student in multiple courses:
+```
+POST http://localhost:5002/api/v1/enrollments/bulk
+{
+  "studentId": "<student-guid>",
+  "courseIds": ["<course-guid-1>", "<course-guid-2>"]
+}
+```
+
+Response includes per-course success/failure:
+```json
+{
+  "enrolled": [{ "id": "...", "courseId": "...", "studentId": "...", "enrolledAt": "..." }],
+  "failed": [{ "courseId": "...", "reason": "Already enrolled in this course." }]
+}
+```
+
+### 8. Browse Courses
+
+All authenticated users can search active courses:
+```
 GET http://localhost:5002/api/v1/courses/search?pageNumber=1&pageSize=10
 
 # Filtered by instructor and date range
@@ -235,12 +347,13 @@ GET http://localhost:5002/api/v1/courses/search?instructorName=Jane&startDate=20
 | `X-XSS-Protection` | `1; mode=block` | Legacy XSS protection |
 | `Referrer-Policy` | `no-referrer` | Controls referrer leakage |
 | `Permissions-Policy` | `camera=(), microphone=(), ...` | Disables browser features |
-| `Content-Security-Policy` | `default-src 'none'` | Blocks all external resources |
+| `Content-Security-Policy` | `default-src 'none'` (API) / relaxed for Swagger | Blocks external resources on API endpoints |
 | `Server` | *(removed)* | Hides server identity |
 
 ### Password Security
 - Passwords are hashed using **BCrypt** with automatic salting — never stored in plain text
 - BCrypt is a one-way hash; passwords cannot be decrypted or retrieved
+- Minimum 8 characters with uppercase, lowercase, digit, and special character required
 
 ### Error Handling
 All error responses follow a consistent JSON structure:
@@ -259,7 +372,7 @@ Status code mapping:
 | 401 | Unauthorized | Missing/expired/invalid JWT |
 | 403 | Forbidden | Insufficient role permissions |
 | 404 | Not Found | Resource does not exist |
-| 409 | Conflict | Duplicate resource (e.g., email already registered) |
+| 409 | Conflict | Duplicate resource (e.g., email already registered, already enrolled) |
 | 429 | Too Many Requests | Rate limit exceeded |
 | 500 | Internal Server Error | Unhandled server exceptions |
 

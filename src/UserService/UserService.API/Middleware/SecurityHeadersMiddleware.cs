@@ -25,8 +25,15 @@ public class SecurityHeadersMiddleware
         // Restrict access to browser features
         headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
 
-        // Content Security Policy — APIs don't serve HTML, so restrict everything
-        headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        // Content Security Policy
+        if (context.Request.Path.StartsWithSegments("/swagger") || context.Request.Path.Value == "/" || context.Request.Path.Value == "/index.html")
+        {
+            headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'";
+        }
+        else
+        {
+            headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+        }
 
         // Remove server identity header
         headers.Remove("Server");

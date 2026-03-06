@@ -30,9 +30,13 @@ public class CoursesController : ControllerBase
         return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
     }
 
+    private string GetCurrentUserRole()
+    {
+        return User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    }
+
     /// <summary>
-    /// Get all courses or filter by date range and/or instructor name (paginated).
-    /// Omit all query parameters to return all active courses.
+    /// Search all active courses with optional filters (paginated). Available to all authenticated users.
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(typeof(PagedResult<CourseDto>), StatusCodes.Status200OK)]
@@ -48,7 +52,7 @@ public class CoursesController : ControllerBase
             : StatusCode(result.StatusCode, ErrorResponseDto.From(result.StatusCode, result.ErrorMessage!));
     }
 
-    /// <summary>Get a course by ID</summary>
+    /// <summary>Get a course by ID. Available to all authenticated users.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(CourseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status401Unauthorized)]
@@ -110,22 +114,4 @@ public class CoursesController : ControllerBase
             : StatusCode(result.StatusCode, ErrorResponseDto.From(result.StatusCode, result.ErrorMessage!));
     }
 
-    /// <summary>Delete a course (Instructor only — must be course owner)</summary>
-    [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Instructor")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(
-        [FromRoute] Guid id,
-        CancellationToken cancellationToken)
-    {
-        var userId = GetCurrentUserId();
-        var result = await _courseService.DeleteCourseAsync(id, userId, cancellationToken);
-
-        return result.IsSuccess
-            ? NoContent()
-            : StatusCode(result.StatusCode, ErrorResponseDto.From(result.StatusCode, result.ErrorMessage!));
-    }
 }

@@ -12,4 +12,6 @@ public interface ICourseService
     Task<Result<bool>> DeleteCourseAsync(Guid id, Guid requestingUserId, CancellationToken cancellationToken = default);
     Task<Result<PagedResult<CourseDto>>> SearchCoursesAsync(CourseSearchRequestDto request, CancellationToken cancellationToken = default);
     Task<Result<EnrollmentDto>> EnrollStudentAsync(EnrollRequestDto request, CancellationToken cancellationToken = default);
+    Task<bool> IsStudentEnrolledAsync(Guid courseId, Guid studentId, CancellationToken cancellationToken = default);
+    Task<Result<BulkEnrollResponseDto>> BulkEnrollAsync(Guid studentId, List<Guid> courseIds, CancellationToken cancellationToken = default);
 }

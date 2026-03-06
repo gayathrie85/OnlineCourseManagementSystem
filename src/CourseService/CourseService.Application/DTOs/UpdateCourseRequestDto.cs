@@ -6,6 +6,7 @@ public class UpdateCourseRequestDto : IValidatableObject
 {
     [Required(ErrorMessage = "Title is required.")]
     [StringLength(200, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 200 characters.")]
+    [RegularExpression(@"^[a-zA-Z0-9\s.,:;'""&()\-]+$", ErrorMessage = "Title can only contain letters, numbers, spaces, and basic punctuation.")]
     public string Title { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Description is required.")]

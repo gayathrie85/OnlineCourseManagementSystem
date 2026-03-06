@@ -170,6 +170,8 @@ public static class ServiceCollectionExtensions
                 Description = "Handles user registration, authentication, and authorization"
             });
 
+            options.DocInclusionPredicate((_, _) => true);
+
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Name = "Authorization",

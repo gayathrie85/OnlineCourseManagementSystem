@@ -158,6 +158,8 @@ public static class ServiceCollectionExtensions
                 Description = "Manages courses, enrollments, and search with role-based authorization"
             });
 
+            options.DocInclusionPredicate((_, _) => true);
+
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Name = "Authorization",

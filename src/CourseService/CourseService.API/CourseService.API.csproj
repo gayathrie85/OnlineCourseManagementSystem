@@ -6,6 +6,12 @@
     <RootNamespace>CourseService.API</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="logs\**" />
+    <Content Remove="logs\**" />
+    <EmbeddedResource Remove="logs\**" />
+    <None Remove="logs\**" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\CourseService.Application\CourseService.Application.csproj" />
     <ProjectReference Include="..\CourseService.Infrastructure\CourseService.Infrastructure.csproj" />
   </ItemGroup>

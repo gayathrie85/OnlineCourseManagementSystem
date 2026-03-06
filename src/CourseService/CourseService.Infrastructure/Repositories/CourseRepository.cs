@@ -50,6 +50,10 @@ public class CourseRepository : ICourseRepository
             .Where(c => c.IsActive)
             .AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(searchRequest.CourseName))
+            query = query.Where(c =>
+                c.Title.ToLower().Contains(searchRequest.CourseName.ToLower()));
+
         if (searchRequest.StartDate.HasValue)
             query = query.Where(c => c.StartDate >= searchRequest.StartDate.Value);
 
