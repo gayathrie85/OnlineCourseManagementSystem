@@ -1,6 +1,6 @@
 # Online Course Management System
 
-A .NET 8 microservices-based Online Course Management System implementing Clean Architecture, JWT authentication, role-based authorization, rate limiting, CORS, security headers, API versioning, and full CRUD operations.
+A .NET 8 microservices-based Online Course Management System implementing Clean Architecture, JWT authentication, role-based authorization, rate limiting, CORS, security headers, API versioning, and full CRUD operations with Entity Framework Core.
 
 ---
 
