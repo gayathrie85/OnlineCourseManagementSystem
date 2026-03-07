@@ -69,13 +69,14 @@ All endpoints are versioned under `/api/v1/`. The version can be omitted and def
 | GET    | `/api/v1/courses/{id}`                | Any (JWT)          | Get any course by ID                                  |
 | POST   | `/api/v1/courses`                     | Instructor         | Create a new course                                   |
 | PUT    | `/api/v1/courses/{id}`                | Instructor         | Update own course                                     |
+| DELETE | `/api/v1/courses/{id}`                | Instructor         | Soft-delete own course (no enrolled students)         |
 | GET    | `/api/v1/enrollments/my-courses`      | Student            | Get enrolled courses (paginated)                      |
 | POST   | `/api/v1/enrollments`                 | Student            | Self-enroll in a course                               |
 | POST   | `/api/v1/enrollments`                 | Instructor         | Enroll any student in a course                        |
 | POST   | `/api/v1/enrollments/bulk`            | Student            | Self-enroll in multiple courses at once                |
 | POST   | `/api/v1/enrollments/bulk`            | Instructor         | Enroll a student in multiple courses at once           |
 
-> **Note:** Course deletion is not supported. Students cannot unenroll once enrolled.
+> **Note:** Course deletion is a soft delete (sets `IsActive = false`). Courses with enrolled students cannot be deleted. Students cannot unenroll once enrolled.
 
 ### Role-Based Access Summary
 
@@ -83,7 +84,7 @@ All endpoints are versioned under `/api/v1/`. The version can be omitted and def
 |-----------------------------|:----------------:|:----------:|
 | Create course               | Yes              | No         |
 | Update own course           | Yes              | No         |
-| Delete course               | No               | No         |
+| Delete course (soft)        | Own, no enrollments | No       |
 | Search all active courses   | Yes              | Yes        |
 | Get course by ID            | Yes              | Yes        |
 | View enrolled courses       | No               | Yes        |

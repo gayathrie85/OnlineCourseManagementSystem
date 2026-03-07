@@ -114,4 +114,24 @@ public class CoursesController : ControllerBase
             : StatusCode(result.StatusCode, ErrorResponseDto.From(result.StatusCode, result.ErrorMessage!));
     }
 
+    /// <summary>Delete (deactivate) a course. Instructor only — must be course owner. Fails if students are enrolled.</summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Instructor")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _courseService.DeleteCourseAsync(id, userId, cancellationToken);
+
+        return result.IsSuccess
+            ? NoContent()
+            : StatusCode(result.StatusCode, ErrorResponseDto.From(result.StatusCode, result.ErrorMessage!));
+    }
+
 }

@@ -108,7 +108,7 @@ public class CourseManagementService : ICourseService
     public async Task<Result<bool>> DeleteCourseAsync(
         Guid id, Guid requestingUserId, CancellationToken cancellationToken = default)
     {
-        var course = await _courseRepository.GetByIdAsync(id, cancellationToken);
+        var course = await _courseRepository.GetByIdWithEnrollmentsAsync(id, cancellationToken);
 
         if (course is null)
             return Result<bool>.NotFound($"Course with Id '{id}' not found.");
@@ -116,8 +116,16 @@ public class CourseManagementService : ICourseService
         if (course.InstructorId != requestingUserId)
             return Result<bool>.Forbidden("You are not authorized to delete this course.");
 
-        await _courseRepository.DeleteAsync(course, cancellationToken);
-        _logger.LogInformation("Course {CourseId} deleted by instructor {InstructorId}", id, requestingUserId);
+        if (!course.IsActive)
+            return Result<bool>.Failure("Course is already inactive.");
+
+        if (course.Enrollments.Any())
+            return Result<bool>.Failure("Cannot delete a course that has enrolled students.");
+
+        course.IsActive = false;
+        course.UpdatedAt = DateTime.UtcNow;
+        await _courseRepository.UpdateAsync(course, cancellationToken);
+        _logger.LogInformation("Course {CourseId} soft-deleted by instructor {InstructorId}", id, requestingUserId);
 
         return Result<bool>.Success(true);
     }
