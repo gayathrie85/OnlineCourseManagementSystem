@@ -247,26 +247,66 @@ public class CourseServiceTests
     #region DeleteCourse Tests
 
     [Fact]
-    public async Task DeleteCourseAsync_ByOwner_ReturnsSuccess()
+    public async Task DeleteCourseAsync_ByOwner_NoEnrollments_SoftDeletes()
     {
         // Arrange
         var instructorId = Guid.NewGuid();
         var courseId = Guid.NewGuid();
 
-        _courseRepoMock
-            .Setup(r => r.GetByIdAsync(courseId, default))
-            .ReturnsAsync(new Course { Id = courseId, InstructorId = instructorId });
+        var course = new Course
+        {
+            Id = courseId,
+            InstructorId = instructorId,
+            IsActive = true,
+            Enrollments = new List<Enrollment>()
+        };
 
         _courseRepoMock
-            .Setup(r => r.DeleteAsync(It.IsAny<Course>(), default))
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.GetByIdWithEnrollmentsAsync(courseId, default))
+            .ReturnsAsync(course);
+
+        _courseRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Course>(), default))
+            .ReturnsAsync((Course c, CancellationToken _) => c);
 
         // Act
         var result = await _sut.DeleteCourseAsync(courseId, instructorId);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        _courseRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Course>(), default), Times.Once);
+        course.IsActive.Should().BeFalse();
+        _courseRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Course>(), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCourseAsync_ByOwner_WithEnrollments_ReturnsBadRequest()
+    {
+        // Arrange
+        var instructorId = Guid.NewGuid();
+        var courseId = Guid.NewGuid();
+
+        var course = new Course
+        {
+            Id = courseId,
+            InstructorId = instructorId,
+            IsActive = true,
+            Enrollments = new List<Enrollment>
+            {
+                new() { Id = Guid.NewGuid(), CourseId = courseId, StudentId = Guid.NewGuid() }
+            }
+        };
+
+        _courseRepoMock
+            .Setup(r => r.GetByIdWithEnrollmentsAsync(courseId, default))
+            .ReturnsAsync(course);
+
+        // Act
+        var result = await _sut.DeleteCourseAsync(courseId, instructorId);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+        course.IsActive.Should().BeTrue();
     }
 
     [Fact]
@@ -276,8 +316,14 @@ public class CourseServiceTests
         var courseId = Guid.NewGuid();
 
         _courseRepoMock
-            .Setup(r => r.GetByIdAsync(courseId, default))
-            .ReturnsAsync(new Course { Id = courseId, InstructorId = Guid.NewGuid() });
+            .Setup(r => r.GetByIdWithEnrollmentsAsync(courseId, default))
+            .ReturnsAsync(new Course
+            {
+                Id = courseId,
+                InstructorId = Guid.NewGuid(),
+                IsActive = true,
+                Enrollments = new List<Enrollment>()
+            });
 
         // Act
         var result = await _sut.DeleteCourseAsync(courseId, Guid.NewGuid());
@@ -285,7 +331,7 @@ public class CourseServiceTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.StatusCode.Should().Be(403);
-        _courseRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Course>(), default), Times.Never);
+        _courseRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Course>(), default), Times.Never);
     }
 
     #endregion

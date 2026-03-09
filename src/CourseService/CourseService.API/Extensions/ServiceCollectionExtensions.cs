@@ -35,8 +35,7 @@ public static class ServiceCollectionExtensions
                 ValidIssuer = issuer,
                 ValidAudience = audience,
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(secret)),
-                ClockSkew = TimeSpan.Zero
+                    Encoding.UTF8.GetBytes(secret))
             };
 
             options.Events = new JwtBearerEvents

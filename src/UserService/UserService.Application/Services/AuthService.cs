@@ -22,7 +22,7 @@ public class AuthService : IAuthService
         _logger = logger;
     }
 
-    public async Task<Result<AuthResponseDto>> RegisterAsync(
+    public async Task<Result<RegisterResponseDto>> RegisterAsync(
         RegisterRequestDto request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Attempting to register user with email: {Email}", request.Email);
@@ -30,7 +30,7 @@ public class AuthService : IAuthService
         if (await _userRepository.EmailExistsAsync(request.Email.ToLowerInvariant(), cancellationToken))
         {
             _logger.LogWarning("Registration failed: Email {Email} already exists", request.Email);
-            return Result<AuthResponseDto>.Conflict("A user with this email already exists.");
+            return Result<RegisterResponseDto>.Conflict("A user with this email already exists.");
         }
 
         var user = new User
@@ -44,8 +44,8 @@ public class AuthService : IAuthService
         var createdUser = await _userRepository.CreateAsync(user, cancellationToken);
         _logger.LogInformation("User registered successfully. Id: {UserId}", createdUser.Id);
 
-        var token = _tokenService.GenerateToken(createdUser);
-        return Result<AuthResponseDto>.Success(BuildAuthResponse(createdUser, token), 201);
+        return Result<RegisterResponseDto>.Success(
+            new RegisterResponseDto { Message = "Registration successful. Please login to get your token." }, 201);
     }
 
     public async Task<Result<AuthResponseDto>> LoginAsync(

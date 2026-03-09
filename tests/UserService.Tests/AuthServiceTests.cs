@@ -32,7 +32,7 @@ public class AuthServiceTests
     #region Register Tests
 
     [Fact]
-    public async Task RegisterAsync_WithValidRequest_ReturnsSuccessWithToken()
+    public async Task RegisterAsync_WithValidRequest_ReturnsSuccessMessage()
     {
         // Arrange
         var request = new RegisterRequestDto
@@ -59,14 +59,6 @@ public class AuthServiceTests
             .Setup(r => r.CreateAsync(It.IsAny<User>(), default))
             .ReturnsAsync(createdUser);
 
-        _tokenServiceMock
-            .Setup(t => t.GenerateToken(It.IsAny<User>()))
-            .Returns("mock_jwt_token");
-
-        _tokenServiceMock
-            .Setup(t => t.GetTokenExpiry())
-            .Returns(DateTime.UtcNow.AddHours(1));
-
         // Act
         var result = await _sut.RegisterAsync(request);
 
@@ -74,8 +66,7 @@ public class AuthServiceTests
         result.IsSuccess.Should().BeTrue();
         result.StatusCode.Should().Be(201);
         result.Data.Should().NotBeNull();
-        result.Data!.Token.Should().Be("mock_jwt_token");
-        result.Data.User.Email.Should().Be(request.Email.ToLowerInvariant());
+        result.Data!.Message.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -125,9 +116,6 @@ public class AuthServiceTests
             .Setup(r => r.CreateAsync(It.IsAny<User>(), default))
             .Callback<User, CancellationToken>((u, _) => capturedUser = u)
             .ReturnsAsync((User u, CancellationToken _) => u);
-
-        _tokenServiceMock.Setup(t => t.GenerateToken(It.IsAny<User>())).Returns("token");
-        _tokenServiceMock.Setup(t => t.GetTokenExpiry()).Returns(DateTime.UtcNow.AddHours(1));
 
         // Act
         await _sut.RegisterAsync(request);
